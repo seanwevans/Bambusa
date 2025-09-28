@@ -131,4 +131,43 @@ Bambusa is in its **conceptual and prototyping stage**:
 - ✅ Core branchless IR defined  
 - ✅ ANTLR grammar written  
 - ✅ Toy Python simulator implemented  
-- ⏳ Next: LLVM IR backend, timeline debugger, persistent heap runtime  
+- ⏳ Next: LLVM IR backend, timeline debugger, persistent heap runtime
+
+## 🧭 Timeline Debugger
+
+The Python runtime can emit a JSONL log describing each IR step.  Run a program
+with the instrumented executor and pass a file path to ``log_path``:
+
+```python
+from bambusa.runtime.executor import Executor
+
+steps = [
+    {"op": "assign", "target": "x", "value": 1},
+    {"op": "add", "target": "x", "value": 2},
+]
+
+executor = Executor(steps)
+executor.run(log_path="run.log")
+```
+
+Inspect the execution afterwards using the CLI:
+
+```bash
+$ bambusa timeline run.log
+```
+
+Interactive commands:
+
+```
+next / prev    step through the log
+goto <step>    jump to an absolute step
+state          show the current instruction + state
+fork [step]    fork the history to explore an alternate path
+diff [step]    compare against the original execution
+```
+
+Use ``--json`` for non-interactive consumption:
+
+```bash
+$ bambusa timeline run.log --json > timeline.json
+```

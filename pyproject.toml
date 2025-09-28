@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bambusa"
+version = "0.1.0"
+description = "Utilities for parsing the Bambusa language"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "antlr4-python3-runtime==4.13.1",
+]
+
+[project.scripts]
+bambusa = "bambusa.cli.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
