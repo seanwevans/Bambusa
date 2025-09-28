@@ -116,28 +116,6 @@ Structural sharing can optimize copies, but immutability is the default.
 
 ---
 
-## 🌴 The Bambusa Grammar (ANTLR4)
-
-```antlr
-ifStmt
-    : 'if' expression 'then' block ('else' block)?
-    ;
-
-forStmt
-    : 'for' Identifier 'in' range block
-    ;
-
-conditionalExpr
-    : 'if' expression 'then' expression 'else' expression
-    | logicalOrExpr
-    ;
-```
-
-Everything desugars to `select` and masks.  
-See [Bambusa.g4](./Bambusa.g4) for the full grammar.
-
----
-
 ## 🌀 Inspirations
 
 - **Functional languages (Haskell, ML):** purity, immutability, persistent data.  
