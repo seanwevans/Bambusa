@@ -1,0 +1,89 @@
+{
+  "children": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "text": "int",
+              "type": "<INVALID>"
+            }
+          ],
+          "rule": "type"
+        },
+        {
+          "text": "counter",
+          "type": "Identifier"
+        },
+        {
+          "text": "=",
+          "type": "<INVALID>"
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "children": [
+                            {
+                              "children": [
+                                {
+                                  "children": [
+                                    {
+                                      "children": [
+                                        {
+                                          "children": [
+                                            {
+                                              "children": [
+                                                {
+                                                  "text": "0",
+                                                  "type": "IntegerLiteral"
+                                                }
+                                              ],
+                                              "rule": "primaryExpr"
+                                            }
+                                          ],
+                                          "rule": "unaryExpr"
+                                        }
+                                      ],
+                                      "rule": "multiplicativeExpr"
+                                    }
+                                  ],
+                                  "rule": "additiveExpr"
+                                }
+                              ],
+                              "rule": "relationalExpr"
+                            }
+                          ],
+                          "rule": "equalityExpr"
+                        }
+                      ],
+                      "rule": "logicalAndExpr"
+                    }
+                  ],
+                  "rule": "logicalOrExpr"
+                }
+              ],
+              "rule": "conditionalExpr"
+            }
+          ],
+          "rule": "expression"
+        },
+        {
+          "text": ";",
+          "type": "<INVALID>"
+        }
+      ],
+      "rule": "globalDecl"
+    },
+    {
+      "text": "<EOF>",
+      "type": "EOF"
+    }
+  ],
+  "rule": "program"
+}

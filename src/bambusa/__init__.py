@@ -1,5 +1,5 @@
-"""Public package interface for the Bambusa prototype."""
-
+"""Bambusa language tools."""
 from . import ast, ir, lowering  # noqa: F401
 
-__all__ = ["ast", "ir", "lowering"]
+__version__ = "0.1.0"
+__all__ = ["__version__", "ast", "ir", "lowering"]
