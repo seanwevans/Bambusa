@@ -1,3 +1,5 @@
-"""Bambusa toy runtime and debugging utilities."""
+"""Public package interface for the Bambusa prototype."""
 
-__all__ = []
+from . import ast, ir, lowering  # noqa: F401
+
+__all__ = ["ast", "ir", "lowering"]
