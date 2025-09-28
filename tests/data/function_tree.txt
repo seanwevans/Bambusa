@@ -1,0 +1,1 @@
+(program (functionDecl fn main ( ) returnType (block { (statement (returnStmt return (expression (conditionalExpr (logicalOrExpr (logicalAndExpr (equalityExpr (relationalExpr (additiveExpr (multiplicativeExpr (unaryExpr (primaryExpr 0))))))))))) ;) })) <EOF>)
