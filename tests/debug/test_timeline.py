@@ -1,0 +1,76 @@
+import json
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from bambusa.debug.timeline import Timeline
+from bambusa.runtime.executor import Executor
+
+
+@pytest.fixture()
+def sample_log(tmp_path: Path) -> Path:
+    steps = [
+        {"op": "assign", "target": "x", "value": 1},
+        {"op": "add", "target": "x", "value": 2},
+        {"op": "mask_select", "target": "y", "mask": True, "on_true": 3, "on_false": 0},
+        {"op": "emit", "channel": "stdout", "value": "done"},
+    ]
+    executor = Executor(steps, initial_state={"x": 0})
+    log_path = tmp_path / "run.log"
+    executor.run(log_path=log_path)
+    return log_path
+
+
+def test_timeline_navigation(sample_log: Path) -> None:
+    timeline = Timeline.from_log(sample_log)
+
+    assert timeline.current_step == 0
+    assert timeline.current_state["x"] == 1
+
+    timeline.next()
+    assert timeline.current_step == 1
+    assert timeline.current_state["x"] == 3
+
+    timeline.seek(0)
+    with pytest.raises(IndexError):
+        timeline.prev()
+
+    timeline.seek(3)
+    assert timeline.current_state["emissions"]["stdout"] == ["done"]
+    with pytest.raises(IndexError):
+        timeline.next()
+
+
+def test_timeline_fork_and_diff(sample_log: Path) -> None:
+    root = Timeline.from_log(sample_log)
+    fork = root.fork(at_step=1)
+
+    diff = fork.diff(root, step=1, other_step=2)
+    assert diff["added"].get("y") == 3
+    assert "x" not in diff["changed"]
+
+    # Move fork forward and ensure states diverge
+    fork.next()
+    fork_state = fork.current_state
+    root.seek(3)
+    delta = fork.diff(root, other_step=root.current_step)
+    assert delta["changed"]["emissions"]["right"] == root.current_state["emissions"]
+    assert delta["changed"]["emissions"]["left"] == fork_state["emissions"]
+
+
+def test_cli_json_mode(sample_log: Path) -> None:
+    log = sample_log
+    env = os.environ.copy()
+    src_path = str(Path.cwd() / "src")
+    env["PYTHONPATH"] = f"{src_path}:{env.get('PYTHONPATH', '')}".rstrip(":")
+    result = subprocess.run(
+        ["python", "-m", "bambusa", "timeline", str(log), "--json"],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    payload = json.loads(result.stdout.decode("utf-8"))
+    assert len(payload) == 4
+    assert payload[0]["state"]["x"] == 1
