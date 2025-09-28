@@ -122,14 +122,6 @@ Structural sharing can optimize copies, but immutability is the default.
 - **GPU & SIMD programming:** predication, masks, warp-uniform execution.  
 - **Cryptography:** constant-time, branchless coding.  
 - **Real-time control:** predictable, deterministic timing.  
-- **Biology:** like bamboo, Bambusa grows tall and straight — with no branches.  
-
----
-
-## ✨ Why “Bambusa”?
-
-*Bambusa* is a genus of bamboo.  
-Bamboo grows tall, strong, and branchless — a perfect metaphor for a language that avoids divergent branches and embraces clarity.
 
 ---
 
@@ -140,9 +132,3 @@ Bambusa is in its **conceptual and prototyping stage**:
 - ✅ ANTLR grammar written  
 - ✅ Toy Python simulator implemented  
 - ⏳ Next: LLVM IR backend, timeline debugger, persistent heap runtime  
-
----
-
-## 📜 License
-
-MIT — free to grow. 🌱
