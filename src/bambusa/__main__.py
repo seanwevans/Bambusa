@@ -1,3 +1,5 @@
+
+
 """Entry point for the ``bambusa`` console script."""
 
 from __future__ import annotations
@@ -6,7 +8,7 @@ import argparse
 import sys
 
 from .parser import cli as parser_cli
-
+from bambusa.cli.main import main
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bambusa", description="Bambusa language utilities")
@@ -29,5 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
-if __name__ == "__main__":  # pragma: no cover - entry point
-    sys.exit(main())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
