@@ -9,7 +9,7 @@ description = "Utilities for parsing the Bambusa language"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "antlr4-python3-runtime==4.13.1",
+  "antlr4-python3-runtime==4.13.2",
 ]
 
 [project.scripts]
