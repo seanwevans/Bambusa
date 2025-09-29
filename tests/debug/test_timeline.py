@@ -79,7 +79,8 @@ def test_cli_json_mode(sample_log: Path) -> None:
     log = sample_log
     env = os.environ.copy()
     src_path = str(Path.cwd() / "src")
-    env["PYTHONPATH"] = f"{src_path}:{env.get('PYTHONPATH', '')}".rstrip(":")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join([src_path, existing]) if existing else src_path
     result = subprocess.run(
         ["python", "-m", "bambusa", "timeline", str(log), "--json"],
         check=True,
@@ -104,7 +105,8 @@ def test_timeline_from_stream(sample_log: Path) -> None:
 def test_cli_json_mode_stdin(sample_log: Path) -> None:
     env = os.environ.copy()
     src_path = str(Path.cwd() / "src")
-    env["PYTHONPATH"] = f"{src_path}:{env.get('PYTHONPATH', '')}".rstrip(":")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join([src_path, existing]) if existing else src_path
 
     log_text = sample_log.read_text(encoding="utf-8")
     result = subprocess.run(
