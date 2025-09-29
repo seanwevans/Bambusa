@@ -39,16 +39,20 @@ class Timeline:
 
     @classmethod
     def from_log(cls, path: str | Path) -> "Timeline":
-        entries = []
         with Path(path).open("r", encoding="utf-8") as handle:
-            for line in handle:
-                line = line.strip()
-                if not line:
-                    continue
-                payload = json.loads(line)
-                entries.append(TimelineEntry.from_payload(payload))
+            return cls.from_stream(handle)
+
+    @classmethod
+    def from_stream(cls, stream: Iterable[str]) -> "Timeline":
+        entries: List[TimelineEntry] = []
+        for line in stream:
+            line = line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            entries.append(TimelineEntry.from_payload(payload))
         if not entries:
-            raise ValueError("Log file is empty")
+            raise ValueError("Log stream produced no entries")
         return cls(entries)
 
     # ------------------------------------------------------------------

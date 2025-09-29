@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from typing import List, Optional
 
 from bambusa.debug.timeline import Timeline
@@ -48,7 +49,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 
 def run_timeline(args: argparse.Namespace) -> int:
-    timeline = Timeline.from_log(args.log)
+    if args.log == "-":
+        timeline = Timeline.from_stream(sys.stdin)
+    else:
+        timeline = Timeline.from_log(args.log)
     root = timeline.fork()
 
     if args.json:

@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from io import StringIO
 from pathlib import Path
 
 import pytest
@@ -74,3 +75,32 @@ def test_cli_json_mode(sample_log: Path) -> None:
     payload = json.loads(result.stdout.decode("utf-8"))
     assert len(payload) == 4
     assert payload[0]["state"]["x"] == 1
+
+
+def test_timeline_from_stream(sample_log: Path) -> None:
+    log_text = sample_log.read_text(encoding="utf-8")
+    timeline = Timeline.from_stream(StringIO(log_text))
+
+    assert timeline.size == 4
+    assert timeline.current_step == 0
+    timeline.seek(3)
+    assert timeline.current_state["emissions"]["stdout"] == ["done"]
+
+
+def test_cli_json_mode_stdin(sample_log: Path) -> None:
+    env = os.environ.copy()
+    src_path = str(Path.cwd() / "src")
+    env["PYTHONPATH"] = f"{src_path}:{env.get('PYTHONPATH', '')}".rstrip(":")
+
+    log_text = sample_log.read_text(encoding="utf-8")
+    result = subprocess.run(
+        ["python", "-m", "bambusa", "timeline", "-", "--json"],
+        input=log_text,
+        text=True,
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    payload = json.loads(result.stdout)
+    assert len(payload) == 4
+    assert payload[-1]["step"] == 3
