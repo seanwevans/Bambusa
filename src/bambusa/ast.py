@@ -1,86 +1,81 @@
-"""Abstract syntax tree nodes for the Bambusa surface language prototype."""
-
+"""Lightweight AST nodes used by the lowering pipeline."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Sequence
+from typing import Sequence, Tuple
 
 
+# ---------------------------------------------------------------------------
+# Expressions
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
 class Expression:
-    """Base class for expressions."""
+    """Base class for expression nodes."""
 
 
-class Statement:
-    """Base class for statements."""
-
-
-@dataclass(slots=True)
-class Program:
-    """A complete Bambusa program consisting of top-level functions."""
-
-    functions: Sequence["Function"]
-
-
-@dataclass(slots=True)
-class Function:
-    """A function declaration with a name, parameters, and body."""
-
-    name: str
-    params: Sequence[str]
-    body: Sequence[Statement]
-
-
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Literal(Expression):
     value: object
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Var(Expression):
     name: str
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class BinaryOp(Expression):
     left: Expression
     op: str
     right: Expression
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Compare(Expression):
     left: Expression
     op: str
     right: Expression
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Load(Expression):
     array: str
     index: Expression
 
 
-@dataclass(slots=True)
+# ---------------------------------------------------------------------------
+# Statements
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Statement:
+    """Base class for statement nodes."""
+
+
+@dataclass(frozen=True)
 class Assign(Statement):
     target: str
     value: Expression
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Store(Statement):
     array: str
     index: Expression
     value: Expression
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class IfElse(Statement):
     condition: Expression
-    then_body: Sequence[Statement] = field(default_factory=list)
-    else_body: Sequence[Statement] = field(default_factory=list)
+    then_body: Sequence[Statement]
+    else_body: Sequence[Statement] = field(default_factory=tuple)
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class ForLoop(Statement):
     target: str
     start: Expression
@@ -88,9 +83,26 @@ class ForLoop(Statement):
     body: Sequence[Statement]
 
 
-@dataclass(slots=True)
+@dataclass(frozen=True)
 class Return(Statement):
     value: Expression
+
+
+# ---------------------------------------------------------------------------
+# Program container
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Function:
+    name: str
+    params: Sequence[str]
+    body: Sequence[Statement]
+
+
+@dataclass(frozen=True)
+class Program:
+    functions: Sequence[Function]
 
 
 __all__ = [

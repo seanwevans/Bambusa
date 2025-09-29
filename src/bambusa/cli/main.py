@@ -7,11 +7,19 @@ import json
 from typing import List, Optional
 
 from bambusa.debug.timeline import Timeline
+from bambusa.parser import cli as parser_cli
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="bambusa", description="Bambusa developer tools")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    parse_parser = subparsers.add_parser(
+        "parse",
+        help="Parse a Bambusa source file",
+        description="Inspect the parse tree produced from Bambusa source code",
+    )
+    parser_cli.configure_parse_subcommand(parse_parser)
 
     timeline_parser = subparsers.add_parser(
         "timeline",
@@ -33,6 +41,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     if args.command == "timeline":
         return run_timeline(args)
+    if args.command == "parse":
+        return parser_cli.handle_parse_command(args)
     parser.error(f"Unsupported command: {args.command}")
     return 2
 
