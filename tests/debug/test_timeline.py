@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 from io import StringIO
 from pathlib import Path
 
@@ -81,7 +82,7 @@ def test_cli_json_mode(sample_log: Path) -> None:
     src_path = str(Path.cwd() / "src")
     env["PYTHONPATH"] = f"{src_path}:{env.get('PYTHONPATH', '')}".rstrip(":")
     result = subprocess.run(
-        ["python", "-m", "bambusa", "timeline", str(log), "--json"],
+        [sys.executable, "-m", "bambusa", "timeline", str(log), "--json"],
         check=True,
         capture_output=True,
         env=env,
@@ -108,7 +109,7 @@ def test_cli_json_mode_stdin(sample_log: Path) -> None:
 
     log_text = sample_log.read_text(encoding="utf-8")
     result = subprocess.run(
-        ["python", "-m", "bambusa", "timeline", "-", "--json"],
+        [sys.executable, "-m", "bambusa", "timeline", "-", "--json"],
         input=log_text,
         text=True,
         check=True,
