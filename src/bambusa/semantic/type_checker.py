@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from .. import ast
+from . import ast_nodes as ast
 
 
 @dataclass

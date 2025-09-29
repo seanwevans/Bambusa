@@ -7,7 +7,7 @@ from antlr4 import CommonTokenStream, InputStream, ParserRuleContext, Token
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.tree.Tree import TerminalNode
 
-from ..ast import (
+from ..semantic.ast_nodes import (
     ArrayType,
     Assignment,
     BinaryOp,

@@ -1,28 +1,22 @@
-"""Branchless IR execution harness built on the persistent heap."""
-"""Runtime executor for Bambusa IR with structured logging.
-
-This module provides a small, test-focused executor for Bambusa's toy
-intermediate representation.  The executor understands a handful of
-high-level operations that are sufficient for the unit tests and emits a
-structured log containing a snapshot of the runtime state after every step.
-"""
-
-from __future__ import annotations
-
-from typing import Any, Dict, Iterable, MutableMapping, Sequence
-
-from .persistent_heap import PersistentHeap, PersistentVector, compact, masked_load, masked_store
-
-
+"""Runtime executors for Bambusa IR."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional
-import json
+from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
 import copy
+import json
 
-class Executor:
+from .persistent_heap import (
+    PersistentHeap,
+    PersistentVector,
+    compact,
+    masked_load,
+    masked_store,
+)
+
+
+class BranchlessExecutor:
     """A tiny interpreter for the branchless Bambusa IR.
 
     The interpreter operates on a dictionary based IR where every instruction is
@@ -155,31 +149,7 @@ class Executor:
 
 @dataclass
 class IRStep:
-    """Represents a single Bambusa IR step.
-
-    Parameters
-    ----------
-    op:
-        The opcode to execute.  Supported opcodes are ``assign``, ``add``,
-        ``mul``, ``mask_select`` and ``emit``.
-    args:
-        Arguments for the opcode.  The expected shape depends on the opcode:
-
-        ``assign``
-            ``{"target": str, "value": Any}``
-        ``add``
-            ``{"target": str, "value": Any}`` – the value is added to the
-            current value of the target variable (defaulting to ``0``).
-        ``mul``
-            ``{"target": str, "value": Any}`` – multiplies the current value
-            by the provided value.
-        ``mask_select``
-            ``{"target": str, "mask": bool, "on_true": Any, "on_false": Any}``
-            – stores ``on_true`` when the mask is truthy, otherwise ``on_false``.
-        ``emit``
-            ``{"channel": str, "value": Any}`` – appends the value to the
-            ``emissions`` buffer under the given channel.
-    """
+    """Represents a single Bambusa IR step."""
 
     op: str
     args: Mapping[str, Any]
@@ -197,20 +167,7 @@ class StructuredLogWriter:
             self._file = self._path.open("w", encoding="utf-8")
 
     def snapshot(self, *, step: int, instruction: Mapping[str, Any], state: Mapping[str, Any]) -> None:
-        """Write a snapshot entry.
-
-        Parameters
-        ----------
-        step:
-            The zero-based step index.
-        instruction:
-            A JSON-serialisable representation of the IR step that just
-            executed.
-        state:
-            A mapping describing the current runtime state.  The mapping is
-            copied before serialisation to ensure immutability of historical
-            entries.
-        """
+        """Write a snapshot entry."""
 
         if self._file is None:
             return
@@ -231,7 +188,7 @@ class StructuredLogWriter:
     def __enter__(self) -> "StructuredLogWriter":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:
+    def __exit__(self, exc_type, exc, tb) -> None:  # noqa: D401 - delegated cleanup
         self.close()
 
 
@@ -259,20 +216,7 @@ class Executor:
         return IRStep(op=op, args=args)
 
     def run(self, *, log_path: Path | str | None = None) -> List[Dict[str, Any]]:
-        """Execute all steps and optionally persist a structured log.
-
-        Parameters
-        ----------
-        log_path:
-            Optional path to a log file that will receive JSON-line snapshots
-            after each executed step.
-
-        Returns
-        -------
-        list of dict
-            The full list of snapshot entries generated during execution.  The
-            same payload is written to ``log_path`` when provided.
-        """
+        """Execute all steps and optionally persist a structured log."""
 
         snapshots: List[Dict[str, Any]] = []
         with StructuredLogWriter(log_path) as writer:
@@ -337,5 +281,4 @@ class Executor:
         return args[key]
 
 
-__all__ = ["Executor", "IRStep", "StructuredLogWriter"]
-
+__all__ = ["BranchlessExecutor", "Executor", "IRStep", "StructuredLogWriter"]
