@@ -129,7 +129,7 @@ class Timeline:
         """
 
         left_state = self._state_at(step)
-        comparison_step = other_step if other_step is not None else (step if step is not None else other.current_step)
+        comparison_step = other.current_step if other_step is None else other_step
         right_state = other._state_at(comparison_step)
         return _diff_states(left_state, right_state)
 

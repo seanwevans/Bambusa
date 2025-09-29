@@ -60,6 +60,20 @@ def test_timeline_fork_and_diff(sample_log: Path) -> None:
     assert delta["changed"]["emissions"]["left"] == fork_state["emissions"]
 
 
+def test_timeline_diff_defaults_to_other_current_step(sample_log: Path) -> None:
+    root = Timeline.from_log(sample_log)
+    fork = root.fork()
+
+    fork.seek(2)
+    root.seek(0)
+
+    diff = fork.diff(root, step=2)
+
+    assert diff["removed"].get("y") == 3
+    assert diff["changed"]["x"]["left"] == 3
+    assert diff["changed"]["x"]["right"] == 1
+
+
 def test_cli_json_mode(sample_log: Path) -> None:
     log = sample_log
     env = os.environ.copy()
