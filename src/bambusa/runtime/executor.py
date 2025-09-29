@@ -259,7 +259,7 @@ class Executor:
     def _handle_mul(self, args: Mapping[str, Any]) -> None:
         target = self._require(args, "target")
         value = args.get("value", 1)
-        self.state[target] = self.state.get(target, 0) * value
+        self.state[target] = self.state.get(target, 1) * value
 
     def _handle_mask_select(self, args: Mapping[str, Any]) -> None:
         target = self._require(args, "target")
