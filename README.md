@@ -156,6 +156,13 @@ Inspect the execution afterwards using the CLI:
 $ bambusa timeline run.log
 ```
 
+The CLI also accepts ``-`` to read the log from standard input, which makes it
+easy to pipe data directly from other tools:
+
+```bash
+$ cat run.log | bambusa timeline - --json
+```
+
 Interactive commands:
 
 ```
