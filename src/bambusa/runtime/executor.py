@@ -108,7 +108,62 @@ class BranchlessExecutor:
         mask = self._resolve(instruction.get("mask"))
         true_value = self._resolve(instruction.get("true"))
         false_value = self._resolve(instruction.get("false"))
-        return true_value if mask else false_value
+
+        def _as_sequence(value: Any) -> Optional[Sequence[Any]]:
+            if isinstance(value, PersistentVector):
+                return value.materialise()
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+                return value
+            return None
+
+        mask_seq = _as_sequence(mask)
+        true_seq = _as_sequence(true_value)
+        false_seq = _as_sequence(false_value)
+
+        candidate_lengths = [
+            len(seq)
+            for seq in (mask_seq, true_seq, false_seq)
+            if seq is not None
+        ]
+        target_length = max(candidate_lengths, default=None)
+
+        # Treat fully scalar inputs (possibly length-1 sequences) as scalars.
+        if target_length is None or (
+            target_length == 1
+            and (mask_seq is None or len(mask_seq) == 1)
+            and (true_seq is None or len(true_seq) == 1)
+            and (false_seq is None or len(false_seq) == 1)
+        ):
+            mask_value = bool(mask_seq[0]) if mask_seq is not None else bool(mask)
+            true_scalar = true_seq[0] if true_seq is not None else true_value
+            false_scalar = false_seq[0] if false_seq is not None else false_value
+            return true_scalar if mask_value else false_scalar
+
+        target_length = target_length or 0
+
+        def _broadcast(seq: Optional[Sequence[Any]], value: Any) -> Sequence[Any]:
+            if seq is None:
+                return tuple(value for _ in range(target_length))
+            if len(seq) == target_length:
+                return tuple(seq)
+            if len(seq) == 1:
+                return tuple(seq[0] for _ in range(target_length))
+            raise ValueError(
+                f"Value of length {len(seq)} cannot broadcast to length {target_length}"
+            )
+
+        if mask_seq is None:
+            mask_tuple = tuple(bool(mask) for _ in range(target_length))
+        else:
+            mask_tuple = tuple(bool(m) for m in _broadcast(mask_seq, mask))
+
+        true_tuple = _broadcast(true_seq, true_value)
+        false_tuple = _broadcast(false_seq, false_value)
+
+        return tuple(
+            true_item if mask_item else false_item
+            for mask_item, true_item, false_item in zip(mask_tuple, true_tuple, false_tuple)
+        )
 
     def _op_tuple(self, instruction: MutableMapping[str, Any]) -> Any:
         values = instruction.get("values", [])

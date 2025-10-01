@@ -28,8 +28,31 @@ class TimelineEntry:
 class Timeline:
     """Navigates execution histories produced by :class:`Executor`."""
 
-    def __init__(self, entries: Iterable[TimelineEntry]):
-        self._entries: List[TimelineEntry] = list(entries)
+    def __init__(
+        self,
+        entries: Iterable[TimelineEntry],
+        *,
+        _shared: bool = False,
+    ) -> None:
+        """Create a timeline from an iterable of entries.
+
+        Parameters
+        ----------
+        entries:
+            Source entries to populate the timeline.  By default the iterable is
+            eagerly copied into an internal list so that external mutations do
+            not affect the timeline.  When ``_shared`` is ``True`` the provided
+            list is re-used directly which allows efficient cloning of existing
+            timelines.  The flag is private to discourage callers from
+            accidentally sharing mutable buffers.
+        """
+
+        if _shared:
+            if not isinstance(entries, list):
+                raise TypeError("Shared timelines require a concrete list")
+            self._entries = entries
+        else:
+            self._entries = list(entries)
         if not self._entries:
             raise ValueError("Timeline requires at least one entry")
         self._index: int = 0
@@ -103,7 +126,7 @@ class Timeline:
     # Forking and diffing
 
     def fork(self, *, at_step: Optional[int] = None) -> "Timeline":
-        clone = Timeline(self._entries)
+        clone = Timeline(self._entries, _shared=True)
         if at_step is None:
             clone._index = self._index
         else:
