@@ -128,10 +128,30 @@ Structural sharing can optimize copies, but immutability is the default.
 ## 🚧 Status
 
 Bambusa is in its **conceptual and prototyping stage**:
-- ✅ Core branchless IR defined  
-- ✅ ANTLR grammar written  
-- ✅ Toy Python simulator implemented  
+- ✅ Core branchless IR defined
+- ✅ ANTLR grammar written
+- ✅ Toy Python simulator implemented
 - ⏳ Next: LLVM IR backend, timeline debugger, persistent heap runtime
+
+## 🧪 Runtime opcodes
+
+The Python runtime executes a lightweight dictionary-based IR.  Opcodes mirror
+the structures emitted by the lowering pipeline so that tests, tooling, and the
+eventual compiler backend agree on semantics.  Arithmetic instructions retain
+their verb-style names (``add``, ``sub``, ``mul``), while comparisons use the
+``cmp_<mnemonic>`` form that corresponds to the Bambusa surface syntax:
+
+| Surface operator | Opcode   |
+| ---------------- | -------- |
+| ``==``           | ``cmp_eq`` |
+| ``!=``           | ``cmp_ne`` |
+| ``<``            | ``cmp_lt`` |
+| ``<=``           | ``cmp_le`` |
+| ``>``            | ``cmp_gt`` |
+| ``>=``           | ``cmp_ge`` |
+
+The resulting boolean can be wired directly into other branchless primitives
+such as ``select`` or mask-producing operations.
 
 ## 🧭 Timeline Debugger
 
