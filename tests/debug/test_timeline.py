@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from bambusa.debug.timeline import Timeline
+from bambusa.debug.timeline import Timeline, TimelineEntry
 from bambusa.runtime.executor import Executor
 
 
@@ -121,3 +121,36 @@ def test_cli_json_mode_stdin(sample_log: Path) -> None:
     payload = json.loads(result.stdout)
     assert len(payload) == 4
     assert payload[-1]["step"] == 3
+
+
+def test_timeline_initialisation_copies_entries() -> None:
+    entries = [
+        TimelineEntry(step=idx, instruction={}, state={"value": idx})
+        for idx in range(5)
+    ]
+
+    timeline = Timeline(entries)
+
+    # Mutating the caller's list must not affect the timeline's backing store.
+    entries.append(
+        TimelineEntry(step=99, instruction={"op": "noop"}, state={"value": 99})
+    )
+
+    assert timeline.size == 5
+
+
+def test_timeline_fork_reuses_entries_buffer() -> None:
+    large_entries = [
+        TimelineEntry(step=idx, instruction={"op": "noop"}, state={"value": idx})
+        for idx in range(50_000)
+    ]
+
+    timeline = Timeline(large_entries)
+    fork = timeline.fork()
+
+    assert fork._entries is timeline._entries
+    assert fork.size == timeline.size
+
+    # Seeking deep into the fork should succeed without recomputing the buffer.
+    fork.seek(49_999)
+    assert fork.current_state["value"] == 49_999
