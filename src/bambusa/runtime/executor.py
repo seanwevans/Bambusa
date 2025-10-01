@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
-import copy
 import json
 
 from .persistent_heap import (
@@ -14,6 +13,26 @@ from .persistent_heap import (
     masked_load,
     masked_store,
 )
+
+
+def _materialise_value(value: Any) -> Any:
+    """Recursively materialise persistent vectors within ``value``."""
+
+    if isinstance(value, PersistentVector):
+        return value.materialise()
+    if isinstance(value, Mapping):
+        return {key: _materialise_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_materialise_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_materialise_value(item) for item in value)
+    return value
+
+
+def _materialise_state(state: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a copy of ``state`` with vectors materialised into tuples."""
+
+    return {key: _materialise_value(value) for key, value in state.items()}
 
 
 class BranchlessExecutor:
@@ -192,14 +211,8 @@ class BranchlessExecutor:
     def snapshot(self, names: Sequence[str]) -> Dict[str, Any]:
         """Return a snapshot of selected registers (materialising vectors)."""
 
-        result: Dict[str, Any] = {}
-        for name in names:
-            value = self.registers.get(name)
-            if isinstance(value, PersistentVector):
-                result[name] = value.materialise()
-            else:
-                result[name] = value
-        return result
+        result: Dict[str, Any] = {name: self.registers.get(name) for name in names}
+        return _materialise_state(result)
 
 
 @dataclass
@@ -228,8 +241,8 @@ class StructuredLogWriter:
             return
         entry = {
             "step": step,
-            "instruction": instruction,
-            "state": copy.deepcopy(state),
+            "instruction": _materialise_state(instruction),
+            "state": _materialise_state(state),
         }
         json.dump(entry, self._file, sort_keys=True)
         self._file.write("\n")
@@ -277,10 +290,12 @@ class Executor:
         with StructuredLogWriter(log_path) as writer:
             for index, step in enumerate(self._steps):
                 self._execute_step(step)
+                instruction = _materialise_state({"op": step.op, **step.args})
+                state_snapshot = _materialise_state(self.state)
                 snapshot = {
                     "step": index,
-                    "instruction": {"op": step.op, **step.args},
-                    "state": copy.deepcopy(self.state),
+                    "instruction": instruction,
+                    "state": state_snapshot,
                 }
                 writer.snapshot(
                     step=index,

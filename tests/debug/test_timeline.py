@@ -9,6 +9,7 @@ import pytest
 
 from bambusa.debug.timeline import Timeline, TimelineEntry
 from bambusa.runtime.executor import Executor
+from bambusa.runtime.persistent_heap import PersistentHeap
 
 
 @pytest.fixture()
@@ -21,6 +22,29 @@ def sample_log(tmp_path: Path) -> Path:
     ]
     executor = Executor(steps, initial_state={"x": 0})
     log_path = tmp_path / "run.log"
+    executor.run(log_path=log_path)
+    return log_path
+
+
+@pytest.fixture()
+def persistent_vector_log(tmp_path: Path) -> Path:
+    heap = PersistentHeap()
+    vector = heap.allocate([1, 2, 3])
+    nested = {
+        "vector": vector,
+        "items": [vector, {"inner": vector}],
+    }
+    initial_state = {
+        "vec": vector,
+        "nested": nested,
+        "emissions": {},
+    }
+    steps = [
+        {"op": "add", "target": "counter", "value": 1},
+        {"op": "mul", "target": "counter", "value": 2},
+    ]
+    executor = Executor(steps, initial_state=initial_state)
+    log_path = tmp_path / "persistent_vector.log"
     executor.run(log_path=log_path)
     return log_path
 
@@ -93,6 +117,24 @@ def test_cli_json_mode(sample_log: Path) -> None:
     assert payload[0]["state"]["x"] == 1
 
 
+def test_cli_json_mode_with_persistent_vector(persistent_vector_log: Path) -> None:
+    env = os.environ.copy()
+    src_path = str(Path.cwd() / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join([src_path, existing]) if existing else src_path
+    result = subprocess.run(
+        [sys.executable, "-m", "bambusa", "timeline", str(persistent_vector_log), "--json"],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    payload = json.loads(result.stdout.decode("utf-8"))
+    assert len(payload) == 2
+    assert payload[0]["state"]["vec"] == [1, 2, 3]
+    assert payload[1]["state"]["nested"]["vector"] == [1, 2, 3]
+    assert payload[1]["state"]["nested"]["items"][1]["inner"] == [1, 2, 3]
+
+
 def test_timeline_from_stream(sample_log: Path) -> None:
     log_text = sample_log.read_text(encoding="utf-8")
     timeline = Timeline.from_stream(StringIO(log_text))
@@ -122,6 +164,25 @@ def test_cli_json_mode_stdin(sample_log: Path) -> None:
     assert len(payload) == 4
     assert payload[-1]["step"] == 3
 
+
+def test_cli_json_mode_stdin_with_persistent_vector(persistent_vector_log: Path) -> None:
+    env = os.environ.copy()
+    src_path = str(Path.cwd() / "src")
+    existing = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = os.pathsep.join([src_path, existing]) if existing else src_path
+
+    log_text = persistent_vector_log.read_text(encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, "-m", "bambusa", "timeline", "-", "--json"],
+        input=log_text,
+        text=True,
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+    payload = json.loads(result.stdout)
+    assert payload[0]["state"]["vec"] == [1, 2, 3]
+    assert payload[-1]["state"]["nested"]["items"][0] == [1, 2, 3]
 
 def test_timeline_initialisation_copies_entries() -> None:
     entries = [
@@ -154,3 +215,4 @@ def test_timeline_fork_reuses_entries_buffer() -> None:
     # Seeking deep into the fork should succeed without recomputing the buffer.
     fork.seek(49_999)
     assert fork.current_state["value"] == 49_999
+
