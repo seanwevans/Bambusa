@@ -1,6 +1,23 @@
-"""Runtime executors for Bambusa IR."""
+"""Runtime executors for Bambusa IR.
+
+The branchless executor operates on dictionary based instructions.  Opcodes
+follow a simple naming scheme so they can be emitted mechanically from the
+lowering pipeline:
+
+* Arithmetic operations use short English verbs (``add``, ``sub``, ``mul``)
+  that mirror :class:`bambusa.ir.Binary` nodes.
+* Comparisons use the ``cmp_<mnemonic>`` form where ``<mnemonic>`` is the
+  familiar LLVM-style suffix derived from the Bambusa surface syntax
+  (``==`` → ``eq``, ``!=`` → ``ne``, ``<`` → ``lt``, ``<=`` → ``le``, ``>`` →
+  ``gt``, ``>=`` → ``ge``).  This keeps the opcode names stable relative to
+  :class:`bambusa.ir.Compare` operations while staying friendly to downstream
+  interpreters.
+"""
 from __future__ import annotations
 
+import copy
+import json
+import operator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
@@ -103,6 +120,35 @@ class BranchlessExecutor:
         lhs = self._resolve(instruction.get("lhs"))
         rhs = self._resolve(instruction.get("rhs"))
         return lhs * rhs
+
+    # Comparisons -----------------------------------------------------
+    def _compare(self, instruction: MutableMapping[str, Any], op) -> bool:
+        try:
+            lhs_operand = instruction["lhs"]
+            rhs_operand = instruction["rhs"]
+        except KeyError as exc:  # pragma: no cover - sanity guard
+            raise ValueError("comparison operations require 'lhs' and 'rhs'") from exc
+        lhs = self._resolve(lhs_operand)
+        rhs = self._resolve(rhs_operand)
+        return op(lhs, rhs)
+
+    def _op_cmp_eq(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.eq)
+
+    def _op_cmp_ne(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.ne)
+
+    def _op_cmp_lt(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.lt)
+
+    def _op_cmp_le(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.le)
+
+    def _op_cmp_gt(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.gt)
+
+    def _op_cmp_ge(self, instruction: MutableMapping[str, Any]) -> bool:
+        return self._compare(instruction, operator.ge)
 
     def _op_select(self, instruction: MutableMapping[str, Any]) -> Any:
         mask = self._resolve(instruction.get("mask"))
