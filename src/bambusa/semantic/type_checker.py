@@ -101,48 +101,63 @@ class TypeChecker:
 
     def _check_function(self, function: ast.FunctionDecl) -> None:
         self._push_scope()
+        previous_return = self._current_return
         self._current_return = function.return_type
 
-        for param in function.params:
-            self._define(param.name, param.type, param.location)
+        try:
+            for param in function.params:
+                self._define(param.name, param.type, param.location)
 
-        self._check_block(function.body, new_scope=False)
+            body_returns = self._check_block(function.body, new_scope=False)
 
-        self._current_return = None
-        self._pop_scope()
+            if function.return_type != ast.VOID_TYPE and not body_returns:
+                self._error(
+                    function.location,
+                    f"function '{function.name}' may exit without returning a value",
+                )
+        finally:
+            self._current_return = previous_return
+            self._pop_scope()
 
     # ------------------------------------------------------------------
     # Statements
     # ------------------------------------------------------------------
 
-    def _check_block(self, block: ast.Block, *, new_scope: bool = True) -> None:
+    def _check_block(self, block: ast.Block, *, new_scope: bool = True) -> bool:
         if new_scope:
             self._push_scope()
+        block_returns = False
         for statement in block.statements:
-            self._check_statement(statement)
+            statement_returns = self._check_statement(statement)
+            block_returns = block_returns or statement_returns
         if new_scope:
             self._pop_scope()
+        return block_returns
 
-    def _check_statement(self, statement: ast.Statement) -> None:
+    def _check_statement(self, statement: ast.Statement) -> bool:
         if isinstance(statement, ast.Block):
-            self._check_block(statement)
-        elif isinstance(statement, ast.VarDecl):
+            return self._check_block(statement)
+        if isinstance(statement, ast.VarDecl):
             self._define(statement.name, statement.type, statement.location)
             if statement.initializer is not None:
                 init_type = self._check_expression(statement.initializer)
                 self._ensure_assignable(statement.type, init_type, statement.initializer.location)
-        elif isinstance(statement, ast.Assignment):
+            return False
+        if isinstance(statement, ast.Assignment):
             target_type = self._lookup(statement.name, statement.location)
             value_type = self._check_expression(statement.value)
             self._ensure_assignable(target_type, value_type, statement.value.location)
-        elif isinstance(statement, ast.IfStmt):
+            return False
+        if isinstance(statement, ast.IfStmt):
             condition_type = self._check_expression(statement.condition)
             if not condition_type.is_bool():
                 self._error(statement.condition.location, "if condition must be a boolean expression")
-            self._check_block(statement.then_block)
+            then_returns = self._check_block(statement.then_block)
+            else_returns = False
             if statement.else_block is not None:
-                self._check_block(statement.else_block)
-        elif isinstance(statement, ast.ForStmt):
+                else_returns = self._check_block(statement.else_block)
+            return then_returns and else_returns
+        if isinstance(statement, ast.ForStmt):
             range_start = self._check_expression(statement.range.start)
             range_end = self._check_expression(statement.range.end)
             for expr, type_ in ((statement.range.start, range_start), (statement.range.end, range_end)):
@@ -152,17 +167,19 @@ class TypeChecker:
             self._define(statement.iterator, ast.INT_TYPE, statement.location)
             self._check_block(statement.body, new_scope=False)
             self._pop_scope()
-        elif isinstance(statement, ast.ReturnStmt):
+            return False
+        if isinstance(statement, ast.ReturnStmt):
             if self._current_return is None:
                 self._error(statement.location, "return statement outside of a function")
             if self._current_return == ast.VOID_TYPE:
                 self._error(statement.location, "void functions cannot return a value")
             value_type = self._check_expression(statement.value)
             self._ensure_assignable(self._current_return, value_type, statement.value.location)
-        elif isinstance(statement, ast.ExprStmt):
+            return True
+        if isinstance(statement, ast.ExprStmt):
             self._check_expression(statement.value)
-        else:  # pragma: no cover - defensive programming for future nodes
-            raise NotImplementedError(f"unhandled statement type: {type(statement)!r}")
+            return False
+        raise NotImplementedError(f"unhandled statement type: {type(statement)!r}")
 
     # ------------------------------------------------------------------
     # Expressions

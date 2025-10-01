@@ -67,3 +67,27 @@ def test_assignment_type_mismatch_raises() -> None:
     with pytest.raises(SemanticError) as excinfo:
         _check(source)
     assert "cannot assign" in str(excinfo.value)
+
+
+def test_function_missing_return_raises() -> None:
+    source = """
+    fn bad(bool flag) -> int {
+        if flag then { return 1; }
+    }
+    """
+    with pytest.raises(SemanticError) as excinfo:
+        _check(source)
+    assert "without returning" in str(excinfo.value)
+
+
+def test_function_returns_across_multiple_branches() -> None:
+    source = """
+    fn choose(bool cond, bool nested, int a, int b) -> int {
+        if cond then {
+            if nested then { return a; } else { return b; }
+        } else {
+            return b;
+        }
+    }
+    """
+    _check(source)

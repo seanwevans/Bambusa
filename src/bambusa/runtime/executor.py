@@ -21,6 +21,7 @@ import operator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
+import json
 
 from .persistent_heap import (
     PersistentHeap,
@@ -29,6 +30,26 @@ from .persistent_heap import (
     masked_load,
     masked_store,
 )
+
+
+def _materialise_value(value: Any) -> Any:
+    """Recursively materialise persistent vectors within ``value``."""
+
+    if isinstance(value, PersistentVector):
+        return value.materialise()
+    if isinstance(value, Mapping):
+        return {key: _materialise_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_materialise_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_materialise_value(item) for item in value)
+    return value
+
+
+def _materialise_state(state: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return a copy of ``state`` with vectors materialised into tuples."""
+
+    return {key: _materialise_value(value) for key, value in state.items()}
 
 
 class BranchlessExecutor:
@@ -133,7 +154,62 @@ class BranchlessExecutor:
         mask = self._resolve(instruction.get("mask"))
         true_value = self._resolve(instruction.get("true"))
         false_value = self._resolve(instruction.get("false"))
-        return true_value if mask else false_value
+
+        def _as_sequence(value: Any) -> Optional[Sequence[Any]]:
+            if isinstance(value, PersistentVector):
+                return value.materialise()
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+                return value
+            return None
+
+        mask_seq = _as_sequence(mask)
+        true_seq = _as_sequence(true_value)
+        false_seq = _as_sequence(false_value)
+
+        candidate_lengths = [
+            len(seq)
+            for seq in (mask_seq, true_seq, false_seq)
+            if seq is not None
+        ]
+        target_length = max(candidate_lengths, default=None)
+
+        # Treat fully scalar inputs (possibly length-1 sequences) as scalars.
+        if target_length is None or (
+            target_length == 1
+            and (mask_seq is None or len(mask_seq) == 1)
+            and (true_seq is None or len(true_seq) == 1)
+            and (false_seq is None or len(false_seq) == 1)
+        ):
+            mask_value = bool(mask_seq[0]) if mask_seq is not None else bool(mask)
+            true_scalar = true_seq[0] if true_seq is not None else true_value
+            false_scalar = false_seq[0] if false_seq is not None else false_value
+            return true_scalar if mask_value else false_scalar
+
+        target_length = target_length or 0
+
+        def _broadcast(seq: Optional[Sequence[Any]], value: Any) -> Sequence[Any]:
+            if seq is None:
+                return tuple(value for _ in range(target_length))
+            if len(seq) == target_length:
+                return tuple(seq)
+            if len(seq) == 1:
+                return tuple(seq[0] for _ in range(target_length))
+            raise ValueError(
+                f"Value of length {len(seq)} cannot broadcast to length {target_length}"
+            )
+
+        if mask_seq is None:
+            mask_tuple = tuple(bool(mask) for _ in range(target_length))
+        else:
+            mask_tuple = tuple(bool(m) for m in _broadcast(mask_seq, mask))
+
+        true_tuple = _broadcast(true_seq, true_value)
+        false_tuple = _broadcast(false_seq, false_value)
+
+        return tuple(
+            true_item if mask_item else false_item
+            for mask_item, true_item, false_item in zip(mask_tuple, true_tuple, false_tuple)
+        )
 
     def _op_tuple(self, instruction: MutableMapping[str, Any]) -> Any:
         values = instruction.get("values", [])
@@ -181,14 +257,8 @@ class BranchlessExecutor:
     def snapshot(self, names: Sequence[str]) -> Dict[str, Any]:
         """Return a snapshot of selected registers (materialising vectors)."""
 
-        result: Dict[str, Any] = {}
-        for name in names:
-            value = self.registers.get(name)
-            if isinstance(value, PersistentVector):
-                result[name] = value.materialise()
-            else:
-                result[name] = value
-        return result
+        result: Dict[str, Any] = {name: self.registers.get(name) for name in names}
+        return _materialise_state(result)
 
 
 @dataclass
@@ -217,8 +287,8 @@ class StructuredLogWriter:
             return
         entry = {
             "step": step,
-            "instruction": instruction,
-            "state": copy.deepcopy(state),
+            "instruction": _materialise_state(instruction),
+            "state": _materialise_state(state),
         }
         json.dump(entry, self._file, sort_keys=True)
         self._file.write("\n")
@@ -266,10 +336,12 @@ class Executor:
         with StructuredLogWriter(log_path) as writer:
             for index, step in enumerate(self._steps):
                 self._execute_step(step)
+                instruction = _materialise_state({"op": step.op, **step.args})
+                state_snapshot = _materialise_state(self.state)
                 snapshot = {
                     "step": index,
-                    "instruction": {"op": step.op, **step.args},
-                    "state": copy.deepcopy(self.state),
+                    "instruction": instruction,
+                    "state": state_snapshot,
                 }
                 writer.snapshot(
                     step=index,
