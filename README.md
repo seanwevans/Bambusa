@@ -1,5 +1,7 @@
 # 🌱 Bambusa
 
+<img width="256" alt="Bamboo Forest Tranquility" src="https://github.com/user-attachments/assets/bd64ebab-0db4-441b-8401-fd6f6c0e1ddb" />
+
 > **Bambusa: Imperative syntax, functional core, branchless by construction.**
 
 Bambusa is an experimental programming language designed for a compute-abundant future.  
