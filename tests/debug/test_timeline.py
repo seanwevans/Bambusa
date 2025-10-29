@@ -100,6 +100,23 @@ def test_timeline_diff_defaults_to_other_current_step(sample_log: Path) -> None:
     assert diff["changed"]["x"]["right"] == 1
 
 
+def test_timeline_seek_and_diff_repeated_calls(sample_log: Path) -> None:
+    timeline = Timeline.from_log(sample_log)
+    fork = timeline.fork()
+
+    timeline.seek(1)
+    fork.seek(1)
+
+    first_diff = timeline.diff(fork, step=1)
+    second_diff = timeline.diff(fork, step=1)
+
+    assert first_diff == second_diff
+
+    entry = timeline.seek(3)
+    assert entry.step == 3
+    assert timeline.seek(3) is entry
+
+
 def test_cli_json_mode(sample_log: Path) -> None:
     log = sample_log
     env = os.environ.copy()
