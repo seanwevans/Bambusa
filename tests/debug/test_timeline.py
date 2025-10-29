@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import subprocess
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from bambusa.cli.main import run_timeline
 from bambusa.debug.timeline import Timeline, TimelineEntry
 from bambusa.runtime.executor import Executor
 from bambusa.runtime.persistent_heap import PersistentHeap
@@ -215,4 +217,22 @@ def test_timeline_fork_reuses_entries_buffer() -> None:
     # Seeking deep into the fork should succeed without recomputing the buffer.
     fork.seek(49_999)
     assert fork.current_state["value"] == 49_999
+
+
+def test_run_timeline_handles_keyboard_interrupt(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    args = argparse.Namespace(log=str(sample_log), json=False)
+
+    def _raise_keyboard_interrupt(*_: object, **__: object) -> str:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("builtins.input", _raise_keyboard_interrupt)
+
+    exit_code = run_timeline(args)
+
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert captured.out.endswith("\n")
 
