@@ -117,10 +117,12 @@ def run_timeline(args: argparse.Namespace) -> int:
                 current_label = label_stack.pop()
                 print(f"Returned to timeline at step {current.current_step}")
             elif command == "diff":
-                step = None
-                if rest:
-                    step = int(rest[0])
-                diff = current.diff(root, step=step, other_step=step)
+                if not rest:
+                    print("usage: diff <step> [root_step]")
+                    continue
+                step = int(rest[0])
+                other_step = root.current_step if len(rest) == 1 else int(rest[1])
+                diff = current.diff(root, step=step, other_step=other_step)
                 print(json.dumps(diff, indent=2, sort_keys=True))
             else:
                 print(f"Unknown command: {command}. Type 'help' for available commands.")
@@ -132,7 +134,7 @@ def run_timeline(args: argparse.Namespace) -> int:
 def _format_banner(path: str, timeline: Timeline) -> str:
     return (
         f"Loaded timeline from {path}\n"
-        "Commands: next, prev, goto <step>, state, instruction, steps, diff [step],\n"
+        "Commands: next, prev, goto <step>, state, instruction, steps, diff <step> [root_step],\n"
         "          fork [step], back, help, quit"
     )
 
@@ -157,7 +159,8 @@ def _print_help() -> None:
         "  steps           - show the valid step range\n"
         "  fork [step]     - fork a new timeline from the current (or specified) step\n"
         "  back            - return to the parent timeline\n"
-        "  diff [step]     - diff against the root timeline at the current (or specified) step\n"
+        "  diff <step> [root_step] - diff against the root timeline at the given step,\n"
+        "                     optionally comparing to a specific root step\n"
         "  help            - print this message\n"
         "  quit / exit     - leave the debugger"
     )
