@@ -160,6 +160,32 @@ def test_cli_diff_accepts_root_step_argument(
     assert diff_output["removed"]["y"] == 3
 
 
+def test_cli_diff_defaults_to_matching_root_step(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["diff 2", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    exit_code = cli_main.main(["timeline", str(sample_log)])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    start = captured.out.find("{")
+    end = captured.out.rfind("}")
+    assert start != -1 and end != -1 and end > start
+    diff_output = json.loads(captured.out[start : end + 1])
+    assert diff_output["added"] == {}
+    assert diff_output["removed"] == {}
+    assert diff_output["changed"] == {}
+
+
 def test_timeline_from_stream(sample_log: Path) -> None:
     log_text = sample_log.read_text(encoding="utf-8")
     timeline = Timeline.from_stream(StringIO(log_text))

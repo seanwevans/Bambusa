@@ -121,7 +121,7 @@ def run_timeline(args: argparse.Namespace) -> int:
                     print("usage: diff <step> [root_step]")
                     continue
                 step = int(rest[0])
-                other_step = root.current_step if len(rest) == 1 else int(rest[1])
+                other_step = step if len(rest) == 1 else int(rest[1])
                 diff = current.diff(root, step=step, other_step=other_step)
                 print(json.dumps(diff, indent=2, sort_keys=True))
             else:
