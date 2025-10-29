@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from bambusa.cli import main as cli_main
 from bambusa.cli.main import run_timeline
 from bambusa.debug.timeline import Timeline, TimelineEntry
 from bambusa.runtime.executor import Executor
@@ -152,6 +153,56 @@ def test_cli_json_mode_with_persistent_vector(persistent_vector_log: Path) -> No
     assert payload[0]["state"]["vec"] == [1, 2, 3]
     assert payload[1]["state"]["nested"]["vector"] == [1, 2, 3]
     assert payload[1]["state"]["nested"]["items"][1]["inner"] == [1, 2, 3]
+
+
+def test_cli_diff_accepts_root_step_argument(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["diff 2 1", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    exit_code = cli_main.main(["timeline", str(sample_log)])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    start = captured.out.find("{")
+    end = captured.out.rfind("}")
+    assert start != -1 and end != -1 and end > start
+    diff_output = json.loads(captured.out[start : end + 1])
+    assert diff_output["removed"]["y"] == 3
+
+
+def test_cli_diff_defaults_to_matching_root_step(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["diff 2", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    exit_code = cli_main.main(["timeline", str(sample_log)])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    start = captured.out.find("{")
+    end = captured.out.rfind("}")
+    assert start != -1 and end != -1 and end > start
+    diff_output = json.loads(captured.out[start : end + 1])
+    assert diff_output["added"] == {}
+    assert diff_output["removed"] == {}
+    assert diff_output["changed"] == {}
 
 
 def test_timeline_from_stream(sample_log: Path) -> None:
