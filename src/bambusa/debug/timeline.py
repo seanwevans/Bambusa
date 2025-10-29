@@ -33,6 +33,7 @@ class Timeline:
         entries: Iterable[TimelineEntry],
         *,
         _shared: bool = False,
+        _step_positions: Optional[Dict[int, int]] = None,
     ) -> None:
         """Create a timeline from an iterable of entries.
 
@@ -51,8 +52,16 @@ class Timeline:
             if not isinstance(entries, list):
                 raise TypeError("Shared timelines require a concrete list")
             self._entries = entries
+            self._step_positions = (
+                _step_positions
+                if _step_positions is not None
+                else {entry.step: idx for idx, entry in enumerate(self._entries)}
+            )
         else:
             self._entries = list(entries)
+            self._step_positions = {
+                entry.step: idx for idx, entry in enumerate(self._entries)
+            }
         if not self._entries:
             raise ValueError("Timeline requires at least one entry")
         self._index: int = 0
@@ -98,11 +107,11 @@ class Timeline:
         return self._entries[self._index].state
 
     def seek(self, step: int) -> TimelineEntry:
-        for idx, entry in enumerate(self._entries):
-            if entry.step == step:
-                self._index = idx
-                return entry
-        raise IndexError(f"No snapshot recorded for step {step}")
+        try:
+            self._index = self._step_positions[step]
+        except KeyError as error:
+            raise IndexError(f"No snapshot recorded for step {step}") from error
+        return self._entries[self._index]
 
     def next(self) -> TimelineEntry:
         if self._index >= len(self._entries) - 1:
@@ -126,7 +135,11 @@ class Timeline:
     # Forking and diffing
 
     def fork(self, *, at_step: Optional[int] = None) -> "Timeline":
-        clone = Timeline(self._entries, _shared=True)
+        clone = Timeline(
+            self._entries,
+            _shared=True,
+            _step_positions=self._step_positions,
+        )
         if at_step is None:
             clone._index = self._index
         else:
@@ -163,10 +176,11 @@ class Timeline:
     def _state_at(self, step: Optional[int]) -> Mapping[str, Any]:
         if step is None:
             return self.current_state
-        for entry in self._entries:
-            if entry.step == step:
-                return entry.state
-        raise IndexError(f"No snapshot for step {step}")
+        try:
+            entry_index = self._step_positions[step]
+        except KeyError as error:
+            raise IndexError(f"No snapshot for step {step}") from error
+        return self._entries[entry_index].state
 
     def to_json(self) -> List[Dict[str, Any]]:
         return [

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -46,3 +47,25 @@ def test_parse_json_output_matches_golden() -> None:
     assert result.returncode == 0, result.stderr
     expected = (DATA_DIR / "global_tree.json").read_text().strip()
     assert result.stdout.strip() == expected
+
+
+_SKIP_UNREADABLE = os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0)
+
+
+@pytest.mark.skipif(
+    _SKIP_UNREADABLE,
+    reason="Restricted-permission test not supported on this platform",
+)
+def test_cli_handles_unreadable_file(tmp_path: Path) -> None:
+    path = tmp_path / "unreadable.bam"
+    path.write_text("fn main() {}\n", encoding="utf-8")
+
+    original_mode = stat.S_IMODE(path.stat().st_mode)
+    path.chmod(0)
+    try:
+        result = _run_cli("parse", str(path))
+    finally:
+        path.chmod(original_mode)
+
+    assert result.returncode == 1
+    assert result.stderr.strip().splitlines()[-1] == f"bambusa: cannot read {path}"

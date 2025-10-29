@@ -91,6 +91,8 @@ class BranchlessExecutor:
     def _resolve(self, operand: Any) -> Any:
         if isinstance(operand, str) and operand in self.registers:
             return self.registers[operand]
+        if isinstance(operand, Mapping):
+            return {key: self._resolve(value) for key, value in operand.items()}
         if isinstance(operand, list):
             return [self._resolve(item) for item in operand]
         if isinstance(operand, tuple):
