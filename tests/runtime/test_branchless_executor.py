@@ -76,3 +76,20 @@ def test_op_select_raises_on_shape_mismatch() -> None:
 
     with pytest.raises(ValueError):
         _select(executor, [True, False], [1, 2, 3], [4, 5, 6])
+
+
+def test_move_resolves_mapping_operands() -> None:
+    executor = BranchlessExecutor()
+
+    mapping_operand = {"lhs": "left", "rhs": "right"}
+    program = [
+        {"op": "const", "target": "left", "value": 10},
+        {"op": "const", "target": "right", "value": 20},
+        {"op": "move", "target": "result", "value": mapping_operand},
+    ]
+
+    registers = executor.run(program)
+
+    assert registers["result"] == {"lhs": 10, "rhs": 20}
+    assert registers["result"] is not mapping_operand
+    assert mapping_operand == {"lhs": "left", "rhs": "right"}
