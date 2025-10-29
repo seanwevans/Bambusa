@@ -71,6 +71,9 @@ def run_timeline(args: argparse.Namespace) -> int:
         except EOFError:
             print()
             break
+        except KeyboardInterrupt:
+            print()
+            break
         if not raw:
             continue
         command, *rest = raw.split()
