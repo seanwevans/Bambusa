@@ -70,7 +70,10 @@ def _parse_source(path: Path) -> tuple[ParseTree, BambusaParser]:
     if not path.exists():
         raise FileNotFoundError(path)
 
-    input_stream = FileStream(str(path), encoding="utf-8")
+    try:
+        input_stream = FileStream(str(path), encoding="utf-8")
+    except OSError as exc:
+        raise OSError(str(path)) from exc
 
     lexer = BambusaLexer(input_stream)
     parser_error_listener = _CollectingErrorListener()
@@ -124,6 +127,9 @@ def handle_parse_command(args) -> int:
         tree, parser = _parse_source(args.path)
     except FileNotFoundError:
         print(f"bambusa: file not found: {args.path}", file=sys.stderr)
+        return 1
+    except OSError:
+        print(f"bambusa: cannot read {args.path}", file=sys.stderr)
         return 1
     except BambusaSyntaxError as exc:
         print(f"bambusa: {exc}", file=sys.stderr)
