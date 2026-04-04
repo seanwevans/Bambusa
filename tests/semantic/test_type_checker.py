@@ -91,3 +91,37 @@ def test_function_returns_across_multiple_branches() -> None:
     }
     """
     _check(source)
+
+
+def test_unreachable_statement_after_return_raises() -> None:
+    source = """
+    fn bad() -> int {
+        return 1;
+        2;
+    }
+    """
+    with pytest.raises(SemanticError) as excinfo:
+        _check(source)
+    assert "unreachable statement" in str(excinfo.value)
+
+
+def test_unreachable_after_if_else_with_returning_branches_raises() -> None:
+    source = """
+    fn bad(bool cond) -> int {
+        if cond then { return 1; } else { return 2; }
+        3;
+    }
+    """
+    with pytest.raises(SemanticError) as excinfo:
+        _check(source)
+    assert "unreachable statement" in str(excinfo.value)
+
+
+def test_mixed_control_flow_block_with_fallthrough_still_type_checks() -> None:
+    source = """
+    fn ok(bool cond) -> int {
+        if cond then { return 1; }
+        return 2;
+    }
+    """
+    _check(source)
