@@ -126,13 +126,17 @@ class TypeChecker:
     def _check_block(self, block: ast.Block, *, new_scope: bool = True) -> bool:
         if new_scope:
             self._push_scope()
-        block_returns = False
-        for statement in block.statements:
-            statement_returns = self._check_statement(statement)
-            block_returns = block_returns or statement_returns
-        if new_scope:
-            self._pop_scope()
-        return block_returns
+        try:
+            block_returns = False
+            for statement in block.statements:
+                if block_returns:
+                    self._error(statement.location, "unreachable statement")
+                statement_returns = self._check_statement(statement)
+                block_returns = statement_returns
+            return block_returns
+        finally:
+            if new_scope:
+                self._pop_scope()
 
     def _check_statement(self, statement: ast.Statement) -> bool:
         if isinstance(statement, ast.Block):
