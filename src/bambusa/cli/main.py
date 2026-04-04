@@ -129,7 +129,7 @@ def run_timeline(args: argparse.Namespace) -> int:
                 print(json.dumps(diff, indent=2, sort_keys=True))
             else:
                 print(f"Unknown command: {command}. Type 'help' for available commands.")
-        except Exception as exc:  # pragma: no cover - interactive error path
+        except (ValueError, IndexError) as exc:  # pragma: no cover - interactive error path
             print(f"error: {exc}")
     return 0
 
