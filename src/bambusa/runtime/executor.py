@@ -270,11 +270,33 @@ class IRStep:
 
 
 class StructuredLogWriter:
-    """Writes structured JSON snapshots for the executor."""
+    """Writes structured JSON snapshots for the executor.
 
-    def __init__(self, destination: Path | str | None):
+    By default, writes are buffered and flushed when the writer is closed,
+    which avoids a ``flush()`` syscall on every snapshot and is better suited
+    for high-volume tracing. The tradeoff is crash-safety: if the process exits
+    abruptly before ``close()``/context-manager teardown, buffered snapshots may
+    be missing from disk.
+
+    For interactive/debug scenarios that value immediate durability, opt in to
+    eager flushing by setting ``auto_flush=True`` or periodically flushing with
+    ``flush_interval`` (in snapshots).
+    """
+
+    def __init__(
+        self,
+        destination: Path | str | None,
+        *,
+        auto_flush: bool = False,
+        flush_interval: int | None = None,
+    ):
         self._path: Optional[Path] = None
         self._file = None
+        if flush_interval is not None and flush_interval <= 0:
+            raise ValueError("flush_interval must be a positive integer")
+        self._auto_flush = auto_flush
+        self._flush_interval = flush_interval
+        self._snapshots_since_flush = 0
         if destination is not None:
             self._path = Path(destination)
             self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -292,7 +314,15 @@ class StructuredLogWriter:
         }
         json.dump(entry, self._file, sort_keys=True)
         self._file.write("\n")
-        self._file.flush()
+        self._snapshots_since_flush += 1
+
+        should_flush = self._auto_flush
+        if self._flush_interval is not None:
+            should_flush = should_flush or (self._snapshots_since_flush >= self._flush_interval)
+
+        if should_flush:
+            self._file.flush()
+            self._snapshots_since_flush = 0
 
     def close(self) -> None:
         if self._file is not None:
