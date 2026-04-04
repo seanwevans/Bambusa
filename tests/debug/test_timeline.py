@@ -215,6 +215,53 @@ def test_timeline_from_stream(sample_log: Path) -> None:
     assert timeline.current_state["emissions"]["stdout"] == ["done"]
 
 
+def test_timeline_from_stream_rejects_duplicate_steps() -> None:
+    stream = StringIO(
+        "\n".join(
+            [
+                json.dumps({"step": 0, "instruction": {"op": "assign"}, "state": {"x": 1}}),
+                json.dumps({"step": 0, "instruction": {"op": "add"}, "state": {"x": 2}}),
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match=r"duplicate step 0"):
+        Timeline.from_stream(stream)
+
+
+def test_timeline_from_stream_rejects_out_of_order_steps() -> None:
+    stream = StringIO(
+        "\n".join(
+            [
+                json.dumps({"step": 1, "instruction": {"op": "assign"}, "state": {"x": 1}}),
+                json.dumps({"step": 0, "instruction": {"op": "assign"}, "state": {"x": 0}}),
+            ]
+        )
+    )
+
+    with pytest.raises(ValueError, match=r"strictly increasing"):
+        Timeline.from_stream(stream)
+
+
+def test_timeline_from_stream_accepts_strictly_increasing_steps() -> None:
+    stream = StringIO(
+        "\n".join(
+            [
+                json.dumps({"step": 0, "instruction": {"op": "assign"}, "state": {"x": 1}}),
+                json.dumps({"step": 1, "instruction": {"op": "add"}, "state": {"x": 3}}),
+                json.dumps({"step": 2, "instruction": {"op": "emit"}, "state": {"x": 3}}),
+            ]
+        )
+    )
+
+    timeline = Timeline.from_stream(stream)
+
+    assert timeline.size == 3
+    assert timeline.current_step == 0
+    timeline.seek(2)
+    assert timeline.current_state["x"] == 3
+
+
 def test_cli_json_mode_stdin(sample_log: Path) -> None:
     env = os.environ.copy()
     src_path = str(Path.cwd() / "src")
@@ -303,4 +350,3 @@ def test_run_timeline_handles_keyboard_interrupt(
 
     captured = capsys.readouterr()
     assert captured.out.endswith("\n")
-
