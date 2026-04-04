@@ -55,16 +55,41 @@ class Timeline:
             self._step_positions = (
                 _step_positions
                 if _step_positions is not None
-                else {entry.step: idx for idx, entry in enumerate(self._entries)}
+                else self._build_step_positions(self._entries)
             )
         else:
             self._entries = list(entries)
-            self._step_positions = {
-                entry.step: idx for idx, entry in enumerate(self._entries)
-            }
+            self._step_positions = self._build_step_positions(self._entries)
         if not self._entries:
             raise ValueError("Timeline requires at least one entry")
         self._index: int = 0
+
+    @staticmethod
+    def _build_step_positions(entries: List[TimelineEntry]) -> Dict[int, int]:
+        step_positions: Dict[int, int] = {}
+        previous_step: Optional[int] = None
+
+        for idx, entry in enumerate(entries):
+            step = entry.step
+            if step in step_positions:
+                first_index = step_positions[step]
+                raise ValueError(
+                    "Timeline contains duplicate step "
+                    f"{step} at indices {first_index} and {idx}; "
+                    "ensure each snapshot has a unique step."
+                )
+
+            if previous_step is not None and step <= previous_step:
+                raise ValueError(
+                    "Timeline steps must be strictly increasing; "
+                    f"found step {step} at index {idx} after {previous_step}. "
+                    "Sort the log by step and remove duplicates before loading."
+                )
+
+            step_positions[step] = idx
+            previous_step = step
+
+        return step_positions
 
     # ------------------------------------------------------------------
     # Construction helpers
