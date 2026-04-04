@@ -205,6 +205,69 @@ def test_cli_diff_defaults_to_matching_root_step(
     assert diff_output["changed"] == {}
 
 
+def test_cli_goto_and_diff_invalid_arguments_show_user_errors(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["goto nope", "diff two", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    exit_code = cli_main.main(["timeline", str(sample_log)])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "error: invalid literal for int() with base 10: 'nope'" in captured.out
+    assert "error: invalid literal for int() with base 10: 'two'" in captured.out
+
+
+def test_cli_expected_input_mistakes_do_not_crash(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    commands = iter(["goto 999", "prev", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", fake_input)
+
+    exit_code = cli_main.main(["timeline", str(sample_log)])
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "error: No snapshot recorded for step 999" in captured.out
+    assert "error: Already at the beginning of the timeline" in captured.out
+
+
+def test_cli_unexpected_internal_errors_are_not_hidden(
+    sample_log: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commands = iter(["state", "quit"])
+
+    def fake_input(prompt: str) -> str:
+        try:
+            return next(commands)
+        except StopIteration:
+            raise EOFError
+
+    def explode(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("builtins.input", fake_input)
+    monkeypatch.setattr("bambusa.cli.main._print_state", explode)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        cli_main.main(["timeline", str(sample_log)])
+
+
 def test_timeline_from_stream(sample_log: Path) -> None:
     log_text = sample_log.read_text(encoding="utf-8")
     timeline = Timeline.from_stream(StringIO(log_text))
@@ -303,4 +366,3 @@ def test_run_timeline_handles_keyboard_interrupt(
 
     captured = capsys.readouterr()
     assert captured.out.endswith("\n")
-
