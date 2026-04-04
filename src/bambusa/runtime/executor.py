@@ -15,13 +15,11 @@ lowering pipeline:
 """
 from __future__ import annotations
 
-import copy
 import json
 import operator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence
-import json
 
 from .persistent_heap import (
     PersistentHeap,
@@ -89,9 +87,9 @@ class BranchlessExecutor:
     # Instruction helpers
     # ------------------------------------------------------------------
     def _resolve(self, operand: Any) -> Any:
-        if isinstance(operand, str) and operand in self.registers:
-            return self.registers[operand]
         if isinstance(operand, Mapping):
+            if set(operand.keys()) == {"ref"}:
+                return self.registers[operand["ref"]]
             return {key: self._resolve(value) for key, value in operand.items()}
         if isinstance(operand, list):
             return [self._resolve(item) for item in operand]

@@ -26,8 +26,14 @@ def test_comparison_opcodes_drive_select(opcode, lhs, rhs, expected_mask) -> Non
     program = [
         {"op": "const", "target": "lhs", "value": lhs},
         {"op": "const", "target": "rhs", "value": rhs},
-        {"op": opcode, "target": "mask", "lhs": "lhs", "rhs": "rhs"},
-        {"op": "select", "target": "result", "mask": "mask", "true": "lhs", "false": "rhs"},
+        {"op": opcode, "target": "mask", "lhs": {"ref": "lhs"}, "rhs": {"ref": "rhs"}},
+        {
+            "op": "select",
+            "target": "result",
+            "mask": {"ref": "mask"},
+            "true": {"ref": "lhs"},
+            "false": {"ref": "rhs"},
+        },
     ]
 
     registers = executor.run(program)
@@ -43,7 +49,9 @@ def _select(executor: BranchlessExecutor, mask, true_value, false_value):
         "true": true_value,
         "false": false_value,
     })
-    return executor._op_select({"mask": "mask", "true": "true", "false": "false"})
+    return executor._op_select(
+        {"mask": {"ref": "mask"}, "true": {"ref": "true"}, "false": {"ref": "false"}}
+    )
 
 
 def test_op_select_with_scalar_mask() -> None:
@@ -78,18 +86,53 @@ def test_op_select_raises_on_shape_mismatch() -> None:
         _select(executor, [True, False], [1, 2, 3], [4, 5, 6])
 
 
-def test_move_resolves_mapping_operands() -> None:
+def test_move_keeps_plain_strings_as_literals() -> None:
     executor = BranchlessExecutor()
+    program = [{"op": "move", "target": "result", "value": "left"}]
 
-    mapping_operand = {"lhs": "left", "rhs": "right"}
+    registers = executor.run(program)
+
+    assert registers["result"] == "left"
+
+
+def test_move_resolves_explicit_refs() -> None:
+    executor = BranchlessExecutor()
     program = [
         {"op": "const", "target": "left", "value": 10},
-        {"op": "const", "target": "right", "value": 20},
-        {"op": "move", "target": "result", "value": mapping_operand},
+        {"op": "move", "target": "result", "value": {"ref": "left"}},
     ]
 
     registers = executor.run(program)
 
-    assert registers["result"] == {"lhs": 10, "rhs": 20}
-    assert registers["result"] is not mapping_operand
-    assert mapping_operand == {"lhs": "left", "rhs": "right"}
+    assert registers["result"] == 10
+
+
+def test_move_resolves_nested_structures_recursively() -> None:
+    executor = BranchlessExecutor()
+
+    nested_operand = {
+        "literal": "left",
+        "dict_ref": {"ref": "left"},
+        "list_values": ["right", {"ref": "right"}],
+        "tuple_values": ("left", {"ref": "left"}),
+    }
+    program = [
+        {"op": "const", "target": "left", "value": 10},
+        {"op": "const", "target": "right", "value": 20},
+        {"op": "move", "target": "result", "value": nested_operand},
+    ]
+
+    registers = executor.run(program)
+
+    assert registers["result"] == {
+        "literal": "left",
+        "dict_ref": 10,
+        "list_values": ["right", 20],
+        "tuple_values": ("left", 10),
+    }
+    assert nested_operand == {
+        "literal": "left",
+        "dict_ref": {"ref": "left"},
+        "list_values": ["right", {"ref": "right"}],
+        "tuple_values": ("left", {"ref": "left"}),
+    }
